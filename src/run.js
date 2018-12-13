@@ -407,11 +407,11 @@ const processPage = ({
 
 /**
  *
- * @param {{ urls: Array<string>, debug: boolean, loadimages: boolean, skippable: function, browser: any, userAgent: string, withoutjavascript: boolean, viewport: any, puppeteerArgs: Array<string>, cssoOptions: Object, ignoreCSSErrors?: boolean, ignoreJSErrors?: boolean, styletags?: boolean, enableServiceWorkers?: boolean }} options
+ * @param {{ urls: Array<string>, debug: boolean, loadimages: boolean, skippable: function, browser: any, userAgent: string, withoutjavascript: boolean, viewport: any, puppeteerArgs: Array<string>, cssoOptions: Object, ignoreCSSErrors?: boolean, ignoreJSErrors?: boolean, styletags?: boolean, enableServiceWorkers?: boolean, returnPage?: boolean, page?: Object }} options
  * @return Promise<{ finalCss: string, stylesheetContents: { [key: string]: string } }>
  */
 const minimalcss = async options => {
-  const { urls } = options;
+  const { returnPage, page, urls } = options;
   const debug = options.debug || false;
   const cssoOptions = options.cssoOptions || {};
   const enableServiceWorkers = options.enableServiceWorkers || false;
@@ -419,11 +419,7 @@ const minimalcss = async options => {
   if (!enableServiceWorkers) {
     puppeteerArgs.push('--enable-features=NetworkService');
   }
-  const browser =
-    options.browser ||
-    (await puppeteer.launch({
-      args: puppeteerArgs
-    }));
+
 
   // All of these get mutated by the processPage() function. Once
   // per URL.
@@ -436,9 +432,9 @@ const minimalcss = async options => {
 
   try {
     // Note! This opens one URL at a time synchronous
+    
     for (let i = 0; i < urls.length; i++) {
       const pageUrl = urls[i];
-      const page = await browser.newPage();
       if (!enableServiceWorkers) {
         await page._client.send('ServiceWorker.disable');
       }
@@ -457,16 +453,12 @@ const minimalcss = async options => {
       } catch (e) {
         throw e;
       } finally {
-        await page.close();
       }
     }
   } catch (e) {
     throw e;
   } finally {
-    // We can close the browser now that all URLs have been opened.
-    if (!options.browser) {
-      browser.close();
-    }
+
   }
 
   // All URLs have been opened, and we now have multiple DOM (cheerio) objects.
@@ -615,7 +607,8 @@ const minimalcss = async options => {
 
   const returned = {
     finalCss: csstree.generate(allCombinedAst),
-    stylesheetContents
+    stylesheetContents,
+    page: returnPage && page
   };
   return Promise.resolve(returned);
 };
